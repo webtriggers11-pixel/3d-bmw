@@ -40,4 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-/app/generated/prisma
+# NOTE: the generated Prisma client (app/generated/prisma) is intentionally NOT
+# ignored. Turbopack's production build skips gitignored paths, so ignoring it
+# breaks `next build` ("Can't resolve @/app/generated/prisma/client").

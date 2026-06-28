@@ -128,3 +128,17 @@
 - **Follow-ups (deferred)**: spot picker for high tiers; per-zone price floors in admin
   Settings; camera fly-to candidate; multi-car overflow; consider toning XXL scale or
   nudging the side-mirror anchor (XXL ghost rides onto the windshield).
+
+### D-006 — Discovery + fix: production build broke (Turbopack + gitignored Prisma client)
+- **Date**: 2026-06-28 · **Task**: build fix · **Type**: discovery
+- **What happened**: `npm run build` (Next 16 Turbopack) failed with "Can't resolve
+  @/app/generated/prisma/client" for `lib/prisma.ts` and `server/positions.ts`. The
+  generated client existed on disk and dev/tsc resolved it fine — but `.gitignore`
+  had `/app/generated/prisma`, and Turbopack's production build skips gitignored paths.
+  (D-001's "build passes" predated the Turbopack default and was inaccurate.)
+- **Fix**: removed `/app/generated/prisma` from `.gitignore` so Turbopack resolves it;
+  the generated client (15 files, ~516K) is now committed. Build succeeds; all routes
+  compile including `/api/placement/preview`.
+- **Alternative considered**: move the generator output out of `app/` and/or run
+  `prisma generate` in a prebuild step — rejected: the move alone doesn't fix it (any
+  gitignored path is skipped), and committing the client is the minimal robust fix.
