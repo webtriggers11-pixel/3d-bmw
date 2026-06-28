@@ -26,6 +26,26 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+/** On-screen preview font size per tier — hints how big the name renders on the car. */
+const NAME_PX: Record<string, number> = { XS: 15, S: 17, M: 20, L: 24, XL: 28, XXL: 34 };
+
+/**
+ * A "decal" of the donor's name on a white panel, evoking how it appears on the
+ * car body. Size scales with the contribution tier so the value is visible.
+ */
+function NameDecal({ name, size }: { name: string; size: string }) {
+  return (
+    <div className="flex min-h-[56px] items-center justify-center overflow-hidden rounded-xl bg-gradient-to-b from-white to-zinc-200 px-4 py-3">
+      <span
+        className="max-w-full truncate font-semibold leading-none text-zinc-900"
+        style={{ fontSize: NAME_PX[size] ?? 20 }}
+      >
+        {name || "Your name"}
+      </span>
+    </div>
+  );
+}
+
 export function DonationModal() {
   const { isOpen, close } = useDonationModal();
   const setDraft = useDonationModal((s) => s.setDraft);
@@ -162,13 +182,14 @@ export function DonationModal() {
   return (
     <div
       // Light scrim only — the car stays visible behind it so the live preview
-      // (highlighted spot + ghost name) reads while the form is open.
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/20 sm:items-stretch sm:justify-end"
-      onClick={handleClose}
+      // (highlighted spot + ghost name) reads while the form is open. Outside
+      // clicks do NOT close the drawer — only ✕ / Back / Done — so a stray click
+      // never drops an in-progress reservation. The scrim ignores clicks so the
+      // car behind stays interactive.
+      className="pointer-events-none fixed inset-0 z-50 flex items-end justify-center sm:items-stretch sm:justify-end"
     >
       <div
-        className="max-h-[88vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-3xl dark:bg-zinc-900"
-        onClick={(e) => e.stopPropagation()}
+        className="pointer-events-auto max-h-[88vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-3xl dark:bg-zinc-900"
       >
         {done ? (
           <div className="py-6 text-center">
@@ -217,6 +238,8 @@ export function DonationModal() {
                   : "Your hold expired. Go back to get a fresh spot."}
               </p>
             </div>
+
+            <NameDecal name={donorName} size={pendingPay.size} />
 
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
               👀 It&rsquo;s highlighted on the car — this is exactly where your name lands.
@@ -313,25 +336,28 @@ export function DonationModal() {
                 </span>
               </div>
 
-              {/* Live placement preview — where this amount lands on the car. */}
+            </Field>
+
+            {/* Preview: the donor's name as it lands on the car, sized by tier. */}
+            <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-700">
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-400">
+                Your name on the car
+              </p>
+              <NameDecal name={nameValue?.trim() || ""} size={previewSize} />
               {preview?.blocked ? (
-                <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
                   {preview.upgradeHint ?? "No spot available right now."}
                 </p>
               ) : preview?.anchor ? (
                 <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                  Example spot (the{" "}
-                  <span className="font-medium text-zinc-700 dark:text-zinc-200">
-                    {preview.anchor.label.toLowerCase()}
-                  </span>
-                  ) — you&rsquo;re guaranteed a{" "}
+                  Example spot — guaranteed a{" "}
                   <span className="font-medium text-zinc-700 dark:text-zinc-200">
                     {preview.zoneLabel}
                   </span>{" "}
-                  spot. The exact spot is set at checkout.
+                  spot. Exact spot set at checkout. Look at the car to see it.
                 </p>
               ) : null}
-            </Field>
+            </div>
 
             {serverError && (
               <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40">
