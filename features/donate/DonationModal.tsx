@@ -214,11 +214,15 @@ export function DonationModal() {
                 </p>
               ) : preview?.anchor ? (
                 <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                  Your name will appear on the{" "}
+                  Example spot (the{" "}
                   <span className="font-medium text-zinc-700 dark:text-zinc-200">
                     {preview.anchor.label.toLowerCase()}
+                  </span>
+                  ) — you&rsquo;re guaranteed a{" "}
+                  <span className="font-medium text-zinc-700 dark:text-zinc-200">
+                    {preview.zoneLabel}
                   </span>{" "}
-                  · {preview.zoneLabel} · look at the car to see it.
+                  spot. The exact spot is set at checkout.
                 </p>
               ) : null}
             </Field>
