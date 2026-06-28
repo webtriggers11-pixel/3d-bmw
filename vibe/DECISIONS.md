@@ -182,3 +182,21 @@
   PreviewName gains a `confirmed` variant. No schema change.
 - **Verified**: full flow in browser — Continue → confirm (Side Skirt, countdown) → Pay →
   "Priya" committed at side-skirt-right (exact match). Build + 27 tests pass.
+
+### D-009 — Name sizing: livery model (fit-to-panel), not panel-blind scale
+- **Date**: 2026-06-28 · **Task**: feature · **Type**: tech-choice
+- **Business logic**: this is a sponsorship-livery model (cf. F1 liveries / Million
+  Dollar Homepage) — contribution buys prominence + size, but every name is bounded by
+  the panel it sits on; nothing overflows onto glass or a neighbour.
+- **Problem**: `SIZE_SCALE` was panel-blind (`fontSize = 0.18 × scale`) with a fixed
+  `maxWidth = 1.4`, so an XXL name on the tiny side-mirror overflowed onto the windshield,
+  and long names spilled.
+- **Fix**: `fontSizeForName(text, scale, anchorKey) = min(tier target, panel height cap,
+  width-that-fits-the-name)`. Per-panel budgets in `lib/anchors.ts ANCHOR_PANEL` (hood/roof
+  big, mirror/skirt small). Used by both NameText (committed) and PreviewName (ghost) so
+  preview == final. `maxWidth` is now the panel width; outline scales with font.
+- **Effect**: same tier renders big on the hood (~0.22) but small on the mirror (~0.09);
+  long names auto-shrink to fit; no overflow. `SIZE_SCALE` retained as the tier *target*
+  multiplier.
+- **Verified**: numeric checks across sizes/anchors/lengths; committed names render
+  contained in-browser; build + 27 tests pass.

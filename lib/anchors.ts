@@ -32,3 +32,29 @@ export const DEFAULT_ANCHORS: AnchorDef[] = [
   { anchorKey: "roof-edge", label: "Roof Edge", coordinates: { x: 0, y: 1.25, z: -0.85 }, rotation: { x: -1.1, y: 0, z: 0 } },
   { anchorKey: "side-skirt-right", label: "Side Skirt", coordinates: { x: 0.82, y: 0.3, z: 0 }, rotation: { x: 0, y: 1.57, z: 0 } },
 ];
+
+/**
+ * Per-panel render budget (model units), used to size names so they fit their
+ * surface like a real car livery — never overflowing onto glass or a neighbour.
+ * `width` = how far a name may run along the panel; `maxFont` = its height cap.
+ * Big flat surfaces (hood/roof/doors) hold bigger names; thin ones (skirt,
+ * mirror) hold small ones. See lib/sizing.ts `fontSizeForName`.
+ */
+export type PanelBudget = { width: number; maxFont: number };
+
+export const ANCHOR_PANEL: Record<string, PanelBudget> = {
+  hood: { width: 1.2, maxFont: 0.22 },
+  roof: { width: 1.1, maxFont: 0.22 },
+  "front-door-left": { width: 0.95, maxFont: 0.2 },
+  "rear-door-left": { width: 0.95, maxFont: 0.2 },
+  "front-fender-right": { width: 0.7, maxFont: 0.16 },
+  "rear-fender-right": { width: 0.7, maxFont: 0.16 },
+  "front-bumper": { width: 0.9, maxFont: 0.15 },
+  "side-mirror-left": { width: 0.5, maxFont: 0.12 },
+  trunk: { width: 0.95, maxFont: 0.18 },
+  spoiler: { width: 0.85, maxFont: 0.15 },
+  "roof-edge": { width: 0.85, maxFont: 0.17 },
+  "side-skirt-right": { width: 1.0, maxFont: 0.11 },
+};
+
+export const DEFAULT_PANEL: PanelBudget = { width: 0.9, maxFont: 0.18 };

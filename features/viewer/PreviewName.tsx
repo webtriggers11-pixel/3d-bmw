@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { Text } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import type { Mesh, Material } from "three";
+import { fontSizeForName, panelWidthFor } from "@/lib/sizing";
 import type { PreviewAnchor } from "@/types";
 
 /**
@@ -24,8 +25,9 @@ export function PreviewName({
   /** True once the spot is reserved at checkout: solid + steady, not a tentative pulse. */
   confirmed?: boolean;
 }) {
-  const { coordinates: c, rotation: r, scale } = anchor;
+  const { coordinates: c, rotation: r, scale, anchorKey } = anchor;
   const ref = useRef<Mesh>(null);
+  const fontSize = fontSizeForName(name, scale, anchorKey);
 
   useFrame(({ clock }) => {
     const mat = ref.current?.material as Material | undefined;
@@ -42,12 +44,12 @@ export function PreviewName({
       ref={ref}
       position={[c.x, c.y, c.z]}
       rotation={[r.x, r.y, r.z]}
-      fontSize={0.18 * scale}
+      fontSize={fontSize}
       color={confirmed ? "#059669" : "#2563eb"}
       anchorX="center"
       anchorY="middle"
-      maxWidth={1.4}
-      outlineWidth={0.006}
+      maxWidth={panelWidthFor(anchorKey)}
+      outlineWidth={fontSize * 0.03}
       outlineColor="#ffffff"
       fillOpacity={0.95}
     >

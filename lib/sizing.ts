@@ -1,4 +1,5 @@
 import type { NameSize } from "@/app/generated/prisma/enums";
+import { ANCHOR_PANEL, DEFAULT_PANEL } from "@/lib/anchors";
 
 /**
  * Contribution → rendered size tier. Amounts are in paise (₹1 = 100 paise).
@@ -22,7 +23,7 @@ export function amountToSize(amountPaise: number): NameSize {
   return "XS";
 }
 
-/** Relative render scale per size tier (multiplies a base text size). */
+/** Relative render scale per size tier (the tier's *target* size multiplier). */
 export const SIZE_SCALE: Record<NameSize, number> = {
   XS: 0.6,
   S: 0.8,
@@ -31,3 +32,36 @@ export const SIZE_SCALE: Record<NameSize, number> = {
   XL: 1.6,
   XXL: 2.0,
 };
+
+/** Target text height (model units) for a tier at scale 1.0. */
+const BASE_FONT = 0.15;
+/** Approx. glyph advance as a fraction of font size (for width-fit). */
+const CHAR_WIDTH = 0.58;
+/** Don't render below this — keeps even long names legible. */
+const MIN_FONT = 0.05;
+
+/**
+ * Font size (model units) for a name on the car — the livery rule:
+ *   min(tier target, panel height cap, width that fits the name on the panel).
+ *
+ * `scale` is the tier's target multiplier (SIZE_SCALE[size] × position scale).
+ * Tier sets the ambition; the panel caps height; long names auto-shrink to fit
+ * width, so nothing ever overflows its surface. Used by both the committed name
+ * (NameText) and the preview ghost (PreviewName), so they always agree.
+ */
+export function fontSizeForName(
+  text: string,
+  scale: number,
+  anchorKey: string,
+): number {
+  const panel = ANCHOR_PANEL[anchorKey] ?? DEFAULT_PANEL;
+  const len = Math.max((text.trim() || "Your name").length, 1);
+  const target = BASE_FONT * scale;
+  const widthFit = panel.width / (len * CHAR_WIDTH);
+  return Math.max(MIN_FONT, Math.min(target, panel.maxFont, widthFit));
+}
+
+/** Max width (model units) a name may occupy on a given panel. */
+export function panelWidthFor(anchorKey: string): number {
+  return (ANCHOR_PANEL[anchorKey] ?? DEFAULT_PANEL).width;
+}
