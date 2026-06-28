@@ -1,0 +1,37 @@
+{
+  "landing-page": {
+    "state": "built",
+    "type": "feature",
+    "description": "Default create-next-app landing page served at / (boilerplate, not a real product feature yet)",
+    "files": [
+      { "file": "app/page.tsx", "state": "built", "source": "INFERRED", "confidence": 0.85 },
+      { "file": "app/layout.tsx", "state": "built", "source": "INFERRED", "confidence": 0.85 },
+      { "file": "app/globals.css", "state": "built", "source": "INFERRED", "confidence": 0.8 }
+    ],
+    "depends_on": [
+      { "concept": "foundation", "source": "INFERRED", "confidence": 0.8, "evidence": "Build/lint/style config required to render" }
+    ],
+    "depended_on_by": [],
+    "tasks_complete": 0,
+    "tasks_total": 0,
+    "notes": "Boilerplate only. Real 3d-bmw product scope undefined — see DECISIONS D-002."
+  },
+  "foundation": {
+    "state": "built",
+    "type": "infrastructure",
+    "description": "Build, config, and tooling — Next.js, TypeScript, ESLint, PostCSS/Tailwind, package manifest",
+    "files": [
+      { "file": "next.config.ts", "state": "built", "source": "INFERRED", "confidence": 0.7 },
+      { "file": "tsconfig.json", "state": "built", "source": "INFERRED", "confidence": 0.7 },
+      { "file": "eslint.config.mjs", "state": "built", "source": "INFERRED", "confidence": 0.7 },
+      { "file": "postcss.config.mjs", "state": "built", "source": "INFERRED", "confidence": 0.7 },
+      { "file": "package.json", "state": "built", "source": "INFERRED", "confidence": 0.7 }
+    ],
+    "depends_on": [],
+    "depended_on_by": [
+      { "concept": "landing-page", "source": "INFERRED", "confidence": 0.8 }
+    ],
+    "tasks_complete": 0,
+    "tasks_total": 0
+  }
+}

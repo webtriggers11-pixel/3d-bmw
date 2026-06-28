@@ -1,0 +1,164 @@
+// Prisma schema — "Name on the Car" donation app
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum PaymentProvider {
+  RAZORPAY
+  STRIPE // reserved for v2
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+// Rendered size tier, derived from contribution amount.
+enum NameSize {
+  XS
+  S
+  M
+  L
+  XL
+  XXL
+}
+
+enum CarStatus {
+  ACTIVE
+  FULL
+}
+
+// Moderation lifecycle for a donor-submitted name.
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+/// A single rendered car. When every position is occupied the car becomes FULL
+/// and a new car (index + 1) is created. Anchor positions live in `positions`.
+model Car {
+  id        String    @id @default(cuid())
+  index     Int       @unique // 1, 2, 3, ... (display order)
+  status    CarStatus @default(ACTIVE)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  positions Position[]
+  donations Donation[]
+
+  @@index([status])
+}
+
+/// A named anchor on the car surface (hood, roof, door, ...). Stored in the DB
+/// — not hardcoded — so positions can be edited without redeploying.
+model Position {
+  id          String   @id @default(cuid())
+  car         Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+  carId       String
+  anchorKey   String // e.g. "hood", "roof", "front-door-left"
+  coordinates Json // { x, y, z } in model space
+  rotation    Json // { x, y, z } euler radians
+  scale       Float    @default(1)
+  occupied    Boolean  @default(false)
+  // Soft reservation during payment to prevent double-allocation (race safety).
+  reservedUntil DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  donation Donation? // the name currently placed here (if occupied)
+
+  @@unique([carId, anchorKey])
+  @@index([carId, occupied])
+  @@index([reservedUntil])
+}
+
+/// A donor's name placed on a car. Created only after server-verified payment.
+model Donation {
+  id              String           @id @default(cuid())
+  name            String
+  country         String?
+  message         String?
+  amount          Int // smallest currency unit (paise for INR)
+  currency        String           @default("INR")
+  size            NameSize
+  moderation      ModerationStatus @default(APPROVED)
+  paymentStatus   PaymentStatus    @default(PENDING)
+
+  car        Car      @relation(fields: [carId], references: [id])
+  carId      String
+  position   Position @relation(fields: [positionId], references: [id])
+  positionId String   @unique
+
+  payment   Payment? @relation(fields: [paymentId], references: [id])
+  paymentId String?  @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([carId])
+  @@index([moderation])
+  @@index([createdAt])
+}
+
+/// Payment record — the source of truth is the verified webhook, never the
+/// browser callback.
+model Payment {
+  id        String          @id @default(cuid())
+  provider  PaymentProvider @default(RAZORPAY)
+  orderId   String          @unique // razorpay order id
+  paymentId String?         @unique // razorpay payment id (after capture)
+  signature String?
+  status    PaymentStatus   @default(PENDING)
+  amount    Int
+  currency  String          @default("INR")
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  donation Donation?
+}
+
+/// Append-only audit trail for admin/moderation actions.
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  actor     String? // admin identifier, or null for system
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Key/value app settings (e.g. auto-moderation toggle, min contribution).
+model Settings {
+  id    String @id @default(cuid())
+  key   String @unique
+  value Json
+}
+
+/// Reserved for v2 — auth is scaffolded but disabled (AUTH_ENABLED=false).
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+}

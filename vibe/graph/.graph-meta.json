@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "created": "2026-06-28T14:23:57Z",
+  "last_updated": "2026-06-28T14:23:57Z",
+  "update_count": 0,
+  "mode": "built",
+  "project": "3d-bmw",
+  "nodes_planned": 0,
+  "nodes_built": 8,
+  "concepts": 2,
+  "extracted_edges": 9,
+  "inferred_edges": 4,
+  "ambiguous_count": 0,
+  "rationale_nodes": 0,
+  "god_nodes": [
+    { "file": "app/layout.tsx", "connections": 4, "concept": "landing-page", "type": "layout", "risk": "LOW" },
+    { "file": "app/page.tsx", "connections": 2, "concept": "landing-page", "type": "page", "risk": "LOW" },
+    { "file": "app/globals.css", "connections": 2, "concept": "landing-page", "type": "stylesheet", "risk": "LOW" },
+    { "file": "eslint.config.mjs", "connections": 2, "concept": "foundation", "type": "config", "risk": "LOW" },
+    { "file": "next.config.ts", "connections": 1, "concept": "foundation", "type": "config", "risk": "LOW" }
+  ],
+  "ambiguous_edges": []
+}

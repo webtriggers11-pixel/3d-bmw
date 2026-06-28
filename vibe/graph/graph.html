@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>3d-bmw — Dependency Graph</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif; background:#0b0e14; color:#e6e8ee; }
+  header { padding:16px 20px; border-bottom:1px solid #1c2230; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  h1 { font-size:16px; margin:0; font-weight:600; }
+  .meta { color:#8b93a7; font-size:12px; }
+  .toggle { margin-left:auto; display:flex; gap:4px; }
+  button { background:#161b27; color:#e6e8ee; border:1px solid #2a3344; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:13px; }
+  button.active { background:#3b82f6; border-color:#3b82f6; }
+  .wrap { display:flex; height:calc(100vh - 60px); }
+  svg { flex:1; }
+  aside { width:300px; border-left:1px solid #1c2230; padding:16px; overflow:auto; font-size:13px; }
+  aside h2 { font-size:13px; margin:0 0 8px; color:#8b93a7; text-transform:uppercase; letter-spacing:.5px; }
+  .legend span { display:inline-flex; align-items:center; gap:6px; margin:0 10px 6px 0; font-size:12px; color:#aab2c5; }
+  .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .node { cursor:pointer; }
+  .node text { fill:#cdd3e0; font-size:11px; pointer-events:none; }
+  .edge { stroke:#46506a; }
+  .info b { color:#fff; }
+  .info .row { margin-bottom:4px; color:#aab2c5; }
+  code { background:#161b27; padding:1px 5px; border-radius:4px; color:#9ecbff; }
+</style>
+</head>
+<body>
+<header>
+  <h1>3d-bmw <span class="meta">dependency graph</span></h1>
+  <span class="meta">8 files · 2 concepts · built 2026-06-28 · solid = EXTRACTED, dashed = INFERRED</span>
+  <div class="toggle">
+    <button id="btnFile" class="active" onclick="setView('file')">File view</button>
+    <button id="btnConcept" onclick="setView('concept')">Concept view</button>
+  </div>
+</header>
+<div class="wrap">
+  <svg id="svg" viewBox="0 0 720 560" preserveAspectRatio="xMidYMid meet"></svg>
+  <aside>
+    <h2>Legend</h2>
+    <div class="legend">
+      <span><i class="dot" style="background:#3b82f6"></i>route/page</span>
+      <span><i class="dot" style="background:#f97316"></i>layout</span>
+      <span><i class="dot" style="background:#06b6d4"></i>stylesheet</span>
+      <span><i class="dot" style="background:#94a3b8"></i>config</span>
+      <span><i class="dot" style="background:#cbd5e1"></i>foundation</span>
+    </div>
+    <h2 style="margin-top:16px">Selected</h2>
+    <div id="info" class="info"><span class="meta">Click a node.</span></div>
+  </aside>
+</div>
+<script>
+const COLORS = {page:'#3b82f6', layout:'#f97316', stylesheet:'#06b6d4', config:'#94a3b8', manifest:'#94a3b8', feature:'#3b82f6', infrastructure:'#cbd5e1'};
+
+const fileNodes = {
+  'app/layout.tsx':   {x:360,y:140, type:'layout', concept:'landing-page', deg:4, route:null},
+  'app/page.tsx':     {x:200,y:280, type:'page', concept:'landing-page', deg:2, route:'/'},
+  'app/globals.css':  {x:520,y:280, type:'stylesheet', concept:'landing-page', deg:2, route:null},
+  'next.config.ts':   {x:120,y:440, type:'config', concept:'foundation', deg:1},
+  'tsconfig.json':    {x:260,y:470, type:'config', concept:'foundation', deg:0},
+  'eslint.config.mjs':{x:400,y:470, type:'config', concept:'foundation', deg:2},
+  'postcss.config.mjs':{x:540,y:440, type:'config', concept:'foundation', deg:1},
+  'package.json':     {x:640,y:380, type:'manifest', concept:'foundation', deg:0},
+};
+const fileEdges = [
+  {from:'app/layout.tsx', to:'app/globals.css', kind:'EXTRACTED', label:'import "./globals.css"'},
+];
+const fileNotes = {
+  'app/layout.tsx': 'Root layout. Imports globals.css (EXTRACTED) + next, next/font/google (external). Applied to all routes.',
+  'app/page.tsx': 'Home route /. Imports next/image (external).',
+  'app/globals.css': 'Tailwind v4 entry + theme tokens. Imported by app/layout.tsx.',
+  'next.config.ts': 'Next.js config — currently empty. Imports next (type).',
+  'tsconfig.json': 'TS strict config, @/* → root alias.',
+  'eslint.config.mjs': 'ESLint flat config: next core-web-vitals + typescript.',
+  'postcss.config.mjs': 'PostCSS → @tailwindcss/postcss.',
+  'package.json': 'Manifest — scripts + deps.',
+};
+
+const conceptNodes = {
+  'landing-page': {x:280,y:220, type:'feature', size:3, state:'built'},
+  'foundation':   {x:480,y:380, type:'infrastructure', size:5, state:'built'},
+};
+const conceptEdges = [ {from:'landing-page', to:'foundation', kind:'INFERRED'} ];
+const conceptNotes = {
+  'landing-page':'Boilerplate landing page (3 files). Real product scope undefined — DECISIONS D-002.',
+  'foundation':'Build/config/tooling (5 files): next, ts, eslint, postcss, package.',
+};
+
+let view='file';
+const svg = document.getElementById('svg');
+function el(t,a){const e=document.createElementNS('http://www.w3.org/2000/svg',t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+
+function render(){
+  svg.innerHTML='';
+  const nodes = view==='file'?fileNodes:conceptNodes;
+  const edges = view==='file'?fileEdges:conceptEdges;
+  edges.forEach(e=>{
+    const a=nodes[e.from], b=nodes[e.to];
+    if(!a||!b) return;
+    const line=el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:'#46506a','stroke-width':2});
+    if(e.kind==='INFERRED') line.setAttribute('stroke-dasharray','5,5');
+    svg.appendChild(line);
+  });
+  for(const id in nodes){
+    const n=nodes[id];
+    const r = view==='file' ? (n.deg>=3?16:n.deg>=1?12:9) : (8+n.size*3);
+    const g=el('g',{class:'node'});
+    const c=el('circle',{cx:n.x,cy:n.y,r:r,fill:COLORS[n.type]||'#888',stroke:'#0b0e14','stroke-width':2});
+    g.appendChild(c);
+    g.appendChild(el('text',{x:n.x,y:n.y+r+13,'text-anchor':'middle'})).textContent=id;
+    g.onclick=()=>showInfo(id,n);
+    svg.appendChild(g);
+  }
+}
+function showInfo(id,n){
+  const info=document.getElementById('info');
+  if(view==='file'){
+    info.innerHTML=`<div class="row"><b>${id}</b></div>
+      <div class="row">type: <code>${n.type}</code></div>
+      <div class="row">concept: <code>${n.concept}</code></div>
+      ${n.route?`<div class="row">route: <code>${n.route}</code></div>`:''}
+      <div class="row">connections: ${n.deg} · risk LOW</div>
+      <div class="row" style="margin-top:8px">${fileNotes[id]||''}</div>`;
+  } else {
+    info.innerHTML=`<div class="row"><b>${id}</b></div>
+      <div class="row">type: <code>${n.type}</code> · state: <code>${n.state}</code></div>
+      <div class="row">files: ${n.size}</div>
+      <div class="row" style="margin-top:8px">${conceptNotes[id]||''}</div>`;
+  }
+}
+function setView(v){
+  view=v;
+  document.getElementById('btnFile').classList.toggle('active',v==='file');
+  document.getElementById('btnConcept').classList.toggle('active',v==='concept');
+  document.getElementById('info').innerHTML='<span class="meta">Click a node.</span>';
+  render();
+}
+render();
+</script>
+</body>
+</html>
