@@ -1,5 +1,7 @@
 // Razorpay browser checkout helpers.
 
+import type { PreviewAnchor, Zone } from "@/types";
+
 export interface CreateOrderResponse {
   orderId: string;
   amount: number;
@@ -7,6 +9,12 @@ export interface CreateOrderResponse {
   keyId: string;
   simulate: boolean;
   size: string;
+  /** The exact reserved spot the donor is paying for. */
+  anchor: PreviewAnchor | null;
+  zone: Zone | null;
+  zoneLabel: string | null;
+  /** ISO timestamp the reservation hold expires. */
+  reservedUntil: string | null;
 }
 
 declare global {

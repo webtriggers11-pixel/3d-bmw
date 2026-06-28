@@ -14,16 +14,27 @@ import type { PreviewAnchor } from "@/types";
  * preview rather than a placed name. Pulsing the material opacity is cheap (a
  * uniform update — no troika re-layout per frame).
  */
-export function PreviewName({ anchor, name }: { anchor: PreviewAnchor; name: string }) {
+export function PreviewName({
+  anchor,
+  name,
+  confirmed = false,
+}: {
+  anchor: PreviewAnchor;
+  name: string;
+  /** True once the spot is reserved at checkout: solid + steady, not a tentative pulse. */
+  confirmed?: boolean;
+}) {
   const { coordinates: c, rotation: r, scale } = anchor;
   const ref = useRef<Mesh>(null);
 
   useFrame(({ clock }) => {
     const mat = ref.current?.material as Material | undefined;
-    if (mat) {
-      mat.transparent = true;
-      mat.opacity = 0.45 + 0.35 * Math.sin(clock.elapsedTime * 3);
-    }
+    if (!mat) return;
+    mat.transparent = true;
+    // Confirmed: near-solid with a gentle breath. Example: clearly tentative pulse.
+    mat.opacity = confirmed
+      ? 0.8 + 0.15 * Math.sin(clock.elapsedTime * 2)
+      : 0.45 + 0.35 * Math.sin(clock.elapsedTime * 3);
   });
 
   return (
@@ -32,7 +43,7 @@ export function PreviewName({ anchor, name }: { anchor: PreviewAnchor; name: str
       position={[c.x, c.y, c.z]}
       rotation={[r.x, r.y, r.z]}
       fontSize={0.18 * scale}
-      color="#2563eb"
+      color={confirmed ? "#059669" : "#2563eb"}
       anchorX="center"
       anchorY="middle"
       maxWidth={1.4}

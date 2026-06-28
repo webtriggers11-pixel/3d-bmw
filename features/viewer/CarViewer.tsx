@@ -35,8 +35,10 @@ export function CarViewer() {
   // Live placement preview while the donation drawer is open.
   const drawerOpen = useDonationModal((s) => s.isOpen);
   const draftName = useDonationModal((s) => s.draft?.name ?? "");
+  const reserved = useDonationModal((s) => s.reserved);
   const { data: preview } = usePlacementPreview();
-  const showPreview = drawerOpen && !!preview && !preview.blocked && !!preview.anchor;
+  const showCandidate =
+    drawerOpen && !reserved && !!preview && !preview.blocked && !!preview.anchor;
 
   return (
     <div className="relative h-full min-h-[300px] w-full overflow-hidden rounded-3xl bg-gradient-to-b from-zinc-100 to-zinc-300 dark:from-zinc-800 dark:to-zinc-950">
@@ -60,9 +62,11 @@ export function CarViewer() {
           {car?.names.map((n) => (
             <NameText key={n.id} name={n} />
           ))}
-          {showPreview && preview?.anchor && (
+          {reserved ? (
+            <PreviewName anchor={reserved} name={draftName} confirmed />
+          ) : showCandidate && preview?.anchor ? (
             <PreviewName anchor={preview.anchor} name={draftName} />
-          )}
+          ) : null}
         </Suspense>
         <ContactShadows position={[0, 0, 0]} opacity={0.5} scale={14} blur={2.4} far={5} />
         <OrbitControls

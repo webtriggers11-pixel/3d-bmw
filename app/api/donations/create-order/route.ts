@@ -13,6 +13,7 @@ import {
   hasFreePositions,
   storePending,
 } from "@/server/positions";
+import { placementForPosition } from "@/server/placement";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
@@ -110,6 +111,10 @@ export async function POST(req: NextRequest) {
       size,
     });
 
+    // The exact reserved spot, so the client can show "you're paying for THIS
+    // spot" + the hold countdown before opening the payment widget.
+    const placement = await placementForPosition(positionId, size);
+
     return Response.json({
       orderId,
       amount,
@@ -117,6 +122,10 @@ export async function POST(req: NextRequest) {
       keyId: env.RAZORPAY_KEY_ID,
       simulate: SIMULATE,
       size,
+      anchor: placement?.anchor ?? null,
+      zone: placement?.zone ?? null,
+      zoneLabel: placement?.zoneLabel ?? null,
+      reservedUntil: placement?.reservedUntil?.toISOString() ?? null,
     });
   } catch (err) {
     await releaseReservation(positionId);

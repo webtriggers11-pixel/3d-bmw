@@ -29,9 +29,14 @@ type FormValues = z.infer<typeof formSchema>;
 export function DonationModal() {
   const { isOpen, close } = useDonationModal();
   const setDraft = useDonationModal((s) => s.setDraft);
+  const setReserved = useDonationModal((s) => s.setReserved);
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  // Set once a spot is reserved (after "Continue"); drives the confirm step.
+  const [pendingPay, setPendingPay] = useState<CreateOrderResponse | null>(null);
+  const [donorName, setDonorName] = useState("");
+  const [nowTs, setNowTs] = useState(() => Date.now());
   const { data: preview } = usePlacementPreview();
 
   const {
@@ -52,14 +57,28 @@ export function DonationModal() {
 
   // Push a debounced draft to the store so the car can live-preview the spot.
   useEffect(() => {
-    if (!isOpen || done) return;
+    if (!isOpen || done || pendingPay) return;
     const amountPaise = Math.round((amountRupees || 0) * 100);
     const t = setTimeout(
       () => setDraft({ name: nameValue?.trim() || "", amountPaise }),
       250,
     );
     return () => clearTimeout(t);
-  }, [nameValue, amountRupees, isOpen, done, setDraft]);
+  }, [nameValue, amountRupees, isOpen, done, pendingPay, setDraft]);
+
+  // Tick the hold countdown once a spot is reserved.
+  useEffect(() => {
+    if (!pendingPay?.reservedUntil) return;
+    const id = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [pendingPay]);
+
+  // Reservation hold (seconds left) for the confirm step.
+  const reservedUntilMs = pendingPay?.reservedUntil
+    ? Date.parse(pendingPay.reservedUntil)
+    : 0;
+  const holdSec = Math.max(0, Math.floor((reservedUntilMs - nowTs) / 1000));
+  const holdLabel = `${Math.floor(holdSec / 60)}:${String(holdSec % 60).padStart(2, "0")}`;
 
   if (!isOpen) return null;
 
@@ -67,7 +86,22 @@ export function DonationModal() {
     reset();
     setServerError(null);
     setDone(false);
+    setPendingPay(null);
+    setReserved(null);
     close();
+  }
+
+  function handleBack() {
+    // Drop the reserved spot and return to the form; the hold expires on its own.
+    setPendingPay(null);
+    setReserved(null);
+    setServerError(null);
+  }
+
+  function finishSuccess() {
+    setPendingPay(null);
+    setReserved(null);
+    setDone(true);
   }
 
   async function refresh() {
@@ -75,6 +109,7 @@ export function DonationModal() {
     await queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
   }
 
+  // Step 1: reserve the exact spot (does NOT charge). Moves to the confirm step.
   const onSubmit = handleSubmit(async (values) => {
     setServerError(null);
     try {
@@ -91,17 +126,30 @@ export function DonationModal() {
           }),
         },
       );
+      setDonorName(values.name);
+      setReserved(data.anchor); // lock the on-car ghost to the reserved spot
+      setNowTs(Date.now());
+      setPendingPay(data);
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : "Something went wrong.");
+    }
+  });
 
-      if (data.simulate) {
-        await simulatePayment(data.orderId);
+  // Step 2: pay for the already-reserved spot.
+  async function handlePay() {
+    if (!pendingPay) return;
+    setServerError(null);
+    try {
+      if (pendingPay.simulate) {
+        await simulatePayment(pendingPay.orderId);
         await refresh();
-        setDone(true);
+        finishSuccess();
       } else {
-        await openRazorpayCheckout(data, {
-          donorName: values.name,
+        await openRazorpayCheckout(pendingPay, {
+          donorName,
           onSuccess: async () => {
             await refresh();
-            setDone(true);
+            finishSuccess();
           },
           onDismiss: () => setServerError("Payment cancelled."),
         });
@@ -109,7 +157,7 @@ export function DonationModal() {
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Something went wrong.");
     }
-  });
+  }
 
   return (
     <div
@@ -136,6 +184,64 @@ export function DonationModal() {
               className="mt-5 h-11 w-full rounded-full bg-zinc-900 font-medium text-white dark:bg-white dark:text-black"
             >
               Done
+            </button>
+          </div>
+        ) : pendingPay ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+                Confirm your spot
+              </h2>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="text-zinc-400 hover:text-zinc-700"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+              <p className="text-sm text-emerald-800 dark:text-emerald-300">
+                Reserved for{" "}
+                <span className="font-semibold">{donorName}</span>
+              </p>
+              <p className="mt-1 text-lg font-semibold text-emerald-900 dark:text-emerald-200">
+                {pendingPay.anchor?.label ?? "Your spot"}
+                {pendingPay.zoneLabel ? ` · ${pendingPay.zoneLabel}` : ""}
+              </p>
+              <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
+                {holdSec > 0
+                  ? `Held for ${holdLabel} — pay to claim this exact spot.`
+                  : "Your hold expired. Go back to get a fresh spot."}
+              </p>
+            </div>
+
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              👀 It&rsquo;s highlighted on the car — this is exactly where your name lands.
+            </p>
+
+            {serverError && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40">
+                {serverError}
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={handlePay}
+              disabled={holdSec <= 0}
+              className="h-12 w-full rounded-full bg-zinc-900 font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+            >
+              Pay ₹{Math.round(pendingPay.amount / 100)}
+            </button>
+            <button
+              type="button"
+              onClick={handleBack}
+              className="h-10 w-full rounded-full text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+            >
+              ← Back
             </button>
           </div>
         ) : (
@@ -238,7 +344,7 @@ export function DonationModal() {
               disabled={isSubmitting}
               className="h-12 w-full rounded-full bg-zinc-900 font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
             >
-              {isSubmitting ? "Processing…" : `Contribute ₹${amountRupees || 0}`}
+              {isSubmitting ? "Reserving…" : `Continue · ₹${amountRupees || 0}`}
             </button>
             <p className="text-center text-xs text-zinc-400">
               Funds support this project directly · not a registered charity

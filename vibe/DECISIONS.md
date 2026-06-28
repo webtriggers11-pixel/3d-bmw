@@ -167,3 +167,18 @@
   Railway server DB; reads/preview confirmed against it.
 - **Note**: on the deployed Railway app, NODE_ENV=production disables the dev simulate
   path, so completing a real donation still needs Razorpay keys configured.
+
+### D-008 — Upgrade preview → WYSIWYG (reserve-and-confirm before pay)
+- **Date**: 2026-06-28 · **Task**: feature · **Type**: scope-change
+- **What**: replaced "indicative live preview only" (D-005) with a reserve-then-confirm
+  checkout: the form's button is now **Continue** (reserves the exact spot, no charge);
+  a **confirm step** shows the exact reserved spot + a 10-min hold countdown and locks
+  the on-car ghost (solid emerald) to it; **Pay** then charges. The live blue "example"
+  ghost still drives the form stage.
+- **Why**: the donor now sees and pays for the EXACT spot (what-you-see-is-what-you-get),
+  closing the preview-vs-actual gap; the hold makes it honest under contention.
+- **How**: `create-order` returns the reserved `anchor`/`zone`/`reservedUntil`
+  (`placementForPosition`); store gains `reserved`; DonationModal gains the confirm step;
+  PreviewName gains a `confirmed` variant. No schema change.
+- **Verified**: full flow in browser — Continue → confirm (Side Skirt, countdown) → Pay →
+  "Priya" committed at side-skirt-right (exact match). Build + 27 tests pass.
