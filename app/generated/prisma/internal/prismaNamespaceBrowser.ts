@@ -132,6 +132,7 @@ export const PaymentScalarFieldEnum = {
   status: 'status',
   amount: 'amount',
   currency: 'currency',
+  pendingData: 'pendingData',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

@@ -1,13 +1,11 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/app/generated/prisma/client";
-import { redis } from "@/lib/redis";
 import { bus, NAME_EVENT, type NameEvent } from "@/lib/events";
 import { eligibleAnchorKeys } from "@/lib/placement";
 import type { NameSize } from "@/app/generated/prisma/enums";
 
 const RESERVE_MINUTES = 10;
-const PENDING_TTL_SEC = 15 * 60;
 
 export type PendingDonation = {
   positionId: string;
@@ -89,14 +87,21 @@ export async function releaseReservation(positionId: string): Promise<void> {
     .catch(() => {});
 }
 
+/**
+ * Persist the pending donation context on its Payment row (Postgres-backed, no
+ * Redis). The Payment is created just before this call in create-order. The
+ * JSON round-trip strips any `undefined` so it is a valid Prisma JSON value.
+ */
 export async function storePending(orderId: string, ctx: PendingDonation): Promise<void> {
-  await redis.set(`pending:${orderId}`, JSON.stringify(ctx), "EX", PENDING_TTL_SEC);
+  const clean = JSON.parse(JSON.stringify(ctx)) as Prisma.InputJsonValue;
+  await prisma.payment.update({ where: { orderId }, data: { pendingData: clean } });
 }
 
 /**
  * Finalize a paid donation: mark the position occupied, create the Donation,
- * flip the Payment to PAID, mark the car FULL if it just filled, and broadcast
- * the new name. Idempotent — a missing pending key means it was already done.
+ * flip the Payment to PAID, clear its pendingData, mark the car FULL if it just
+ * filled, and broadcast the new name. Idempotent — once pendingData is cleared
+ * (or the spot is already occupied) a repeat call is a no-op.
  *
  * Signature verification is the CALLER's responsibility (webhook / payment
  * signature). This function is the source of truth for allocation.
@@ -106,9 +111,11 @@ export async function finalizePaidDonation(
   paymentId: string,
   signature: string | null,
 ): Promise<{ ok: boolean; reason?: string }> {
-  const raw = await redis.get(`pending:${orderId}`);
-  if (!raw) return { ok: false, reason: "no-pending-or-already-processed" };
-  const ctx = JSON.parse(raw) as PendingDonation;
+  const payment = await prisma.payment.findUnique({ where: { orderId } });
+  if (!payment || payment.pendingData == null) {
+    return { ok: false, reason: "no-pending-or-already-processed" };
+  }
+  const ctx = payment.pendingData as unknown as PendingDonation;
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -120,9 +127,10 @@ export async function finalizePaidDonation(
         data: { occupied: true, reservedUntil: null },
       });
 
-      const payment = await tx.payment.update({
+      const paid = await tx.payment.update({
         where: { orderId },
-        data: { status: "PAID", paymentId, signature },
+        // Clear pendingData so a duplicate webhook is a no-op (idempotency).
+        data: { status: "PAID", paymentId, signature, pendingData: Prisma.DbNull },
       });
 
       await tx.donation.create({
@@ -137,7 +145,7 @@ export async function finalizePaidDonation(
           paymentStatus: "PAID",
           carId: ctx.carId,
           positionId: pos.id,
-          paymentId: payment.id,
+          paymentId: paid.id,
         },
       });
 
@@ -152,7 +160,6 @@ export async function finalizePaidDonation(
     return { ok: false, reason: err instanceof Error ? err.message : "tx-failed" };
   }
 
-  await redis.del(`pending:${orderId}`);
   const event: NameEvent = { type: "new-name", carIndex: ctx.carIndex, name: ctx.name };
   bus.emit(NAME_EVENT, event);
   return { ok: true };

@@ -2,12 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { formatPaise } from "@/lib/format";
+import { fetchJson } from "@/lib/http";
 import type { LeaderEntry } from "@/server/donations";
 
 async function fetchLeaderboard(): Promise<{ top: LeaderEntry[]; recent: LeaderEntry[] }> {
-  const res = await fetch("/api/leaderboard");
-  if (!res.ok) throw new Error("Failed to load leaderboard");
-  return res.json();
+  return fetchJson<{ top: LeaderEntry[]; recent: LeaderEntry[] }>("/api/leaderboard");
 }
 
 export function Leaderboard() {

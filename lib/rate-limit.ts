@@ -10,12 +10,23 @@ export async function rateLimit(
   limit: number,
   windowSec: number,
 ): Promise<{ ok: boolean; remaining: number }> {
-  const redisKey = `ratelimit:${key}`;
-  const count = await redis.incr(redisKey);
-  if (count === 1) {
-    await redis.expire(redisKey, windowSec);
+  try {
+    const redisKey = `ratelimit:${key}`;
+    const count = await redis.incr(redisKey);
+    if (count === 1) {
+      await redis.expire(redisKey, windowSec);
+    }
+    return { ok: count <= limit, remaining: Math.max(0, limit - count) };
+  } catch (err) {
+    // Fail OPEN: if Redis is unreachable, don't 500 the route (which would send
+    // an empty body and crash the client's res.json()). Allow the request and
+    // log — rate limiting is a guard, not a correctness requirement.
+    console.error(
+      "[rate-limit] Redis unavailable, allowing request:",
+      err instanceof Error ? err.message : err,
+    );
+    return { ok: true, remaining: limit };
   }
-  return { ok: count <= limit, remaining: Math.max(0, limit - count) };
 }
 
 /** Best-effort client IP from proxy headers. */

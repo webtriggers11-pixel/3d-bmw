@@ -13,11 +13,10 @@ import { PreviewName } from "./PreviewName";
 import { useLiveStream } from "./useLiveStream";
 import { useDonationModal } from "@/store/useDonationModal";
 import { usePlacementPreview } from "@/features/donate/usePlacementPreview";
+import { fetchJson } from "@/lib/http";
 
 async function fetchCars(): Promise<CarView[]> {
-  const res = await fetch("/api/cars");
-  if (!res.ok) throw new Error("Failed to load cars");
-  const data = (await res.json()) as { cars: CarView[] };
+  const data = await fetchJson<{ cars: CarView[] }>("/api/cars");
   return data.cars;
 }
 

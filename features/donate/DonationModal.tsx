@@ -9,6 +9,7 @@ import { useDonationModal } from "@/store/useDonationModal";
 import { NAME_MAX, MESSAGE_MAX, COUNTRY_MAX } from "@/lib/donation-schema";
 import { amountToSize } from "@/lib/sizing";
 import { QUICK_AMOUNTS } from "@/lib/format";
+import { fetchJson } from "@/lib/http";
 import { usePlacementPreview } from "./usePlacementPreview";
 import {
   openRazorpayCheckout,
@@ -77,18 +78,19 @@ export function DonationModal() {
   const onSubmit = handleSubmit(async (values) => {
     setServerError(null);
     try {
-      const res = await fetch("/api/donations/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: values.name,
-          country: values.country,
-          message: values.message,
-          amountPaise: Math.round(values.amountRupees * 100),
-        }),
-      });
-      const data = (await res.json()) as CreateOrderResponse & { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Something went wrong.");
+      const data = await fetchJson<CreateOrderResponse>(
+        "/api/donations/create-order",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: values.name,
+            country: values.country,
+            message: values.message,
+            amountPaise: Math.round(values.amountRupees * 100),
+          }),
+        },
+      );
 
       if (data.simulate) {
         await simulatePayment(data.orderId);

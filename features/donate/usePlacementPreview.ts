@@ -3,12 +3,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useDonationModal } from "@/store/useDonationModal";
 import { DEFAULT_MIN_PAISE } from "@/lib/donation-schema";
+import { fetchJson } from "@/lib/http";
 import type { PreviewPlacement } from "@/types";
 
 async function fetchPreview(amountPaise: number): Promise<PreviewPlacement> {
-  const res = await fetch(`/api/placement/preview?amountPaise=${amountPaise}`);
-  if (!res.ok) throw new Error("Could not load preview");
-  return (await res.json()) as PreviewPlacement;
+  return fetchJson<PreviewPlacement>(
+    `/api/placement/preview?amountPaise=${amountPaise}`,
+  );
 }
 
 /**

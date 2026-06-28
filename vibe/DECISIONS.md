@@ -142,3 +142,28 @@
 - **Alternative considered**: move the generator output out of `app/` and/or run
   `prisma generate` in a prebuild step — rejected: the move alone doesn't fix it (any
   gitignored path is skipped), and committing the client is the minimal robust fix.
+
+### D-007 — Fix: "Failed to execute 'json'" crash + make the app Redis-optional
+- **Date**: 2026-06-28 · **Task**: bug fix · **Type**: drift/blocker-resolution
+- **Symptom**: client crashed with "Failed to execute 'json' on 'Response': Unexpected
+  end of JSON input". Cause: when Redis was unreachable (e.g. Railway has no Redis),
+  `rateLimit`'s `redis.incr` threw → route 500 with an **empty body** → the client's
+  `res.json()` crashed. `lib/redis.ts` also had no 'error' handler (ioredis spam).
+- **Fixes**:
+  - `rateLimit` now **fails open** on Redis error (allows the request, logs).
+  - `lib/redis.ts`: added an 'error' handler; `enableOfflineQueue:false` + retry so
+    commands fail fast instead of hanging.
+  - `lib/http.ts` `fetchJson<T>()`: reads the body once and parses safely, surfacing a
+    clean Error instead of the DOMException. Adopted by all client fetchers
+    (cars, leaderboard, preview, create-order, admin).
+  - **Removed Redis from the donation flow** (user: "don't use Redis — it's disabled"):
+    pending-payment context now lives on `Payment.pendingData` (new JSON column,
+    migration `20260628172725_add_payment_pending_data`) instead of a Redis key.
+    `storePending`/`finalizePaidDonation` are now Postgres-only and idempotent
+    (pendingData cleared on finalize). Redis is now used ONLY by rate-limiting, which
+    fails open — so the app runs fully without Redis.
+- **Verified**: with Redis dead, reads + preview return clean JSON and a full donation
+  completes (create-order → confirm → name on car). Migration + seed applied to the
+  Railway server DB; reads/preview confirmed against it.
+- **Note**: on the deployed Railway app, NODE_ENV=production disables the dev simulate
+  path, so completing a real donation still needs Razorpay keys configured.

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/format";
+import { fetchJson } from "@/lib/http";
 import type { AdminDonation, ModerationStatus } from "@/types";
 
 const STATUS_FILTERS: (ModerationStatus | "ALL")[] = [
@@ -40,9 +41,10 @@ export function AdminTable({
       const params = new URLSearchParams();
       if (query) params.set("query", query);
       if (status !== "ALL") params.set("status", status);
-      const res = await fetch(`/api/admin/donations?${params}`);
-      if (!res.ok) throw new Error("Failed to load");
-      return (await res.json()).donations;
+      const data = await fetchJson<{ donations: AdminDonation[] }>(
+        `/api/admin/donations?${params}`,
+      );
+      return data.donations;
     },
     initialData: query === "" && status === "ALL" ? initial : undefined,
   });

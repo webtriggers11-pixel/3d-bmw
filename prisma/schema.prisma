@@ -130,6 +130,10 @@ model Payment {
   status    PaymentStatus   @default(PENDING)
   amount    Int
   currency  String          @default("INR")
+  // Pending donation context (positionId, name, size, …) held between order
+  // creation and payment confirmation. Postgres-backed so the flow needs no
+  // Redis. Cleared (set null) once the donation is finalized.
+  pendingData Json?
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
